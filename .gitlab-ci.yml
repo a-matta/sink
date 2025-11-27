@@ -3,21 +3,46 @@ variables:
   UV_VERSION: "0.9.9"
 
 stages:
-  - build
+  - tests
 
 default:
   image: python:3.11-slim
   tags:
     - mint
 
-build:
-  stage: build
+workflow:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
+      when: never
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+
+nightly run:
+  stage: tests
   before_script:
     - pip3 install uv==${UV_VERSION}
   script:
     - uv sync --frozen
-    - echo "Pipeline source = $CI_PIPELINE_SOURCE"
-    - uv run robot -v REASON:$CI_PIPELINE_SOURCE tests/simple-case.robot
+    - uv run robot -v REASON:FULL_TEST_RUN tests/simple-case.robot
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule" && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+  artifacts:
+    when: always
+    paths:
+      - report.html
+
+mr tests:
+  stage: tests
+  before_script:
+    - pip3 install uv==${UV_VERSION}
+  script:
+    - uv sync --frozen
+    # Extract JIRA ID from commit message. Message is expected to start with JIRA ID
+    - export JIRA_ID=$(echo "$CI_COMMIT_MESSAGE" | grep -oE '^[A-Z]+-[0-9]+')
+    - echo "Running tests for JIRA ID = $JIRA_ID"
+    - uv run robot -v REASON:$JIRA_ID tests/simple-case.robot
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event" && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == $CI_DEFAULT_BRANCH
   artifacts:
     when: always
     paths:
