@@ -1,0 +1,23 @@
+
+variables:
+  UV_VERSION: "0.9.9"
+
+stages:
+  - build
+
+default:
+  image: python:3.11-slim
+  tags:
+    - mint
+
+build:
+  stage: build
+  before_script:
+    - pip3 install uv==${UV_VERSION}
+  script:
+    - uv sync --frozen
+    - uv run robot tests/simple-case.robot
+  artifacts:
+    when: always
+    paths:
+      - report.html
