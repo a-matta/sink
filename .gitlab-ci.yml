@@ -16,7 +16,8 @@ build:
     - pip3 install uv==${UV_VERSION}
   script:
     - uv sync --frozen
-    - uv run robot tests/simple-case.robot
+    - echo "Pipeline source = $CI_PIPELINE_SOURCE"
+    - uv run robot -v REASON:$CI_PIPELINE_SOURCE tests/simple-case.robot
   artifacts:
     when: always
     paths:
