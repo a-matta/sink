@@ -1,0 +1,8 @@
+{
+    "editor.renderControlCharacters": true,
+    "editor.renderWhitespace": "all",
+    "files.exclude": {
+        "**/__pycache__": true
+    },
+    "python.defaultInterpreterPath": ".venv/bin/python"
+}

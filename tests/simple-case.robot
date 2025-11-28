@@ -1,6 +1,8 @@
+*** Settings ***
+Variables    ../resource/variables.py
+
 *** Variables ***
 ${REASON}    JIRA-1234
-${BASE_URL}    https://dev.your-app.com
 
 *** Test Cases ***
 Simple Case
