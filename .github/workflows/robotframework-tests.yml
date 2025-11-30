@@ -1,0 +1,85 @@
+name: Robotframework-tests
+
+on:
+  pull_request:
+    branches:
+      - main
+
+  schedule:
+    - cron: '0 0 * * *'
+    
+  push:
+    branches:
+      - main
+
+# 2. Global Variables (Equivalent to `variables`)
+env:
+  UV_VERSION: "0.9.9"
+  TEST_ENV: "test"
+
+jobs:
+  build:
+    runs-on: mint
+    container:
+      image: python:3.11-slim
+    
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        
+      - name: Install UV and Sync Dependencies
+        run: |
+          # Use the global environment variable
+          pip3 install uv==${{ env.UV_VERSION }}
+          # The `--frozen` flag is implicitly handled by uv lock file if present,
+          # but we assume the intent is a clean, dependency-file-driven install.
+          uv sync 
+
+      # The actual script steps for the job are added after this `extends`.
+      
+      # Equivalent to `artifacts` (Output artifacts are uploaded at the end of the job)
+      # We define this in the extending jobs to be explicit about the file.
+
+  # 5. Nightly Run Job (Equivalent to `nightly run`)
+  nightly-run:
+    # Inherit the common configuration
+    runs-on: mint
+    # Only run when the trigger was a `schedule` event
+    if: ${{ github.event_name == 'schedule' }}
+    
+    steps:
+      - name: Run Full Test Suite
+        run: |
+          # Use uv to run the robot command
+          uv run robot -V environments/${{ env.TEST_ENV }}.yaml -v REASON:FULL_TEST_RUN tests/simple-case.robot
+          
+      - name: Upload Test Report Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: nightly-report
+          path: report.html
+
+  mr-tests:
+    runs-on: mint
+    if: ${{ github.event_name == 'pull_request' }}
+    
+    steps:
+      - name: Extract JIRA ID and Run Targeted Tests
+        run: |
+          # The commit message for PR events comes from the PR title/body 
+          # or the latest commit on the source branch. We use the latest commit message.
+          COMMIT_MESSAGE=$(git log -1 --pretty=%B)
+          
+          # Extract JIRA ID
+          JIRA_ID=$(echo "$COMMIT_MESSAGE" | grep -oE '^[A-Z]+-[0-9]+' || echo "N/A")
+          
+          echo "Commit message: $COMMIT_MESSAGE"
+          echo "Running tests for JIRA ID = $JIRA_ID"
+          
+          uv run robot -V environments/${{ env.TEST_ENV }}.yaml -v REASON:$JIRA_ID tests/simple-case.robot
+          
+      - name: Upload Test Report Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: mr-report-${{ github.event.pull_request.number }}
+          path: report.html
